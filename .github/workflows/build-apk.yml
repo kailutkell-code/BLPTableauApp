@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Repository herunterladen
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Java 17 einrichten
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
@@ -27,29 +27,28 @@ jobs:
       - name: Android SDK einrichten
         uses: android-actions/setup-android@v4
         with:
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;34.0.0
+          packages: ""
+
+      - name: Benötigte Android Pakete installieren
+        shell: bash
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;34.0.0"
 
       - name: Gradle 8.9 einrichten
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
       - name: Projekt prüfen
         shell: bash
         run: |
-          echo "Repository:"
-          ls -la
-
           if [ ! -f "settings.gradle" ]; then
-            echo "FEHLER: settings.gradle fehlt im Hauptordner."
+            echo "FEHLER: settings.gradle fehlt."
             exit 1
           fi
 
           if [ ! -f "build.gradle" ]; then
-            echo "FEHLER: build.gradle fehlt im Hauptordner."
+            echo "FEHLER: build.gradle fehlt."
             exit 1
           fi
 
@@ -63,7 +62,7 @@ jobs:
         run: |
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: APK vorbereiten
+      - name: APK finden
         shell: bash
         run: |
           echo "Erzeugte APK-Dateien:"
@@ -78,11 +77,8 @@ jobs:
 
           cp "$APK_PATH" Butz-Konfigurator.apk
 
-          echo "APK erfolgreich erstellt:"
-          ls -lh Butz-Konfigurator.apk
-
-      - name: APK hochladen
-        uses: actions/upload-artifact@v7
+      - name: APK als Download bereitstellen
+        uses: actions/upload-artifact@v4
         with:
           name: Butz-Konfigurator-APK
           path: Butz-Konfigurator.apk
