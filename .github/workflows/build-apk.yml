@@ -29,7 +29,7 @@ jobs:
         with:
           packages: ""
 
-      - name: Benötigte Android Pakete installieren
+      - name: Android Pakete installieren
         shell: bash
         run: |
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;34.0.0"
@@ -39,43 +39,57 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Projekt prüfen
+      - name: Android Projekt automatisch finden
         shell: bash
         run: |
-          if [ ! -f "settings.gradle" ]; then
-            echo "FEHLER: settings.gradle fehlt."
+          echo "Suche settings.gradle..."
+
+          SETTINGS_FILE="$(find "$GITHUB_WORKSPACE" \
+            -type f \
+            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
+            | head -n 1)"
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "FEHLER: Im gesamten Repository wurde keine settings.gradle gefunden."
+            echo ""
+            echo "Vorhandene Dateien:"
+            find "$GITHUB_WORKSPACE" -maxdepth 4 -type f
             exit 1
           fi
 
-          if [ ! -f "build.gradle" ]; then
-            echo "FEHLER: build.gradle fehlt."
-            exit 1
-          fi
+          GRADLE_ROOT="$(dirname "$SETTINGS_FILE")"
 
-          if [ ! -f "app/build.gradle" ]; then
-            echo "FEHLER: app/build.gradle fehlt."
-            exit 1
-          fi
+          echo "Android Projekt gefunden:"
+          echo "$GRADLE_ROOT"
+
+          echo "GRADLE_ROOT=$GRADLE_ROOT" >> "$GITHUB_ENV"
 
       - name: APK bauen
         shell: bash
         run: |
+          cd "$GRADLE_ROOT"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: APK finden
         shell: bash
         run: |
-          echo "Erzeugte APK-Dateien:"
-          find app/build/outputs -type f -name "*.apk" -print
+          echo "Suche erzeugte APK..."
 
-          APK_PATH="$(find app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)"
+          APK_PATH="$(find "$GRADLE_ROOT" \
+            -type f \
+            -name "*.apk" \
+            -path "*/build/outputs/apk/*" \
+            | head -n 1)"
 
           if [ -z "$APK_PATH" ]; then
-            echo "FEHLER: Keine APK gefunden."
+            echo "FEHLER: Build lief durch, aber es wurde keine APK gefunden."
             exit 1
           fi
 
-          cp "$APK_PATH" Butz-Konfigurator.apk
+          echo "APK gefunden:"
+          echo "$APK_PATH"
+
+          cp "$APK_PATH" "$GITHUB_WORKSPACE/Butz-Konfigurator.apk"
 
       - name: APK als Download bereitstellen
         uses: actions/upload-artifact@v4
